@@ -3,64 +3,64 @@ import cv2
 import os
 import time
 
-# Twitter API credentials
-consumer_key = "your_consumer_key"
-consumer_secret = "your_consumer_secret"
-access_token = "your_access_token"
-access_token_secret = "your_access_token_secret"
+# Set up Twitter API credentials
+consumer_key = 'your_consumer_key_here'
+consumer_secret = 'your_consumer_secret_here'
+access_token = 'your_access_token_here'
+access_secret = 'your_access_secret_here'
 
-# Authenticate with Twitter
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
-auth.set_access_token(access_token, access_token_secret)
+auth.set_access_token(access_token, access_secret)
 api = tweepy.API(auth)
 
-# Open the video file
-video = cv2.VideoCapture("video.mp4")
+# Set up video capture object
+video_file = 'videoed.mp4'
+cap = cv2.VideoCapture(video_file)
+fps = cap.get(cv2.CAP_PROP_FPS)
+frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-# Get the framerate of the video
-fps = video.get(cv2.CAP_PROP_FPS)
+# Set up tweet parameters
+tweet = "Every Frame of Azumanga Daioh!"
+media_id = image
 
-# If the framerate is zero, try specifying it manually
-if fps == 0:
-    fps = 25  # Replace 25 with the actual framerate of the video
-
-# Calculate the duration of the video
-frame_count = int(video.get(cv2.CAP_PROP_FRAME_COUNT))
-duration = frame_count / fps
-
-# Create a folder to store the frames
-frames_folder = "frames"
+# Create frame folder if it doesn't exist
+frames_folder = 'frames'
 if not os.path.exists(frames_folder):
     os.makedirs(frames_folder)
 
-# Loop through the frames
-for i in range(frame_count):
-    # Set the current frame position
-    video.set(cv2.CAP_PROP_POS_FRAMES, i)
+# Set time delay between tweets (30 minutes)
+time_delay = 1800
 
-    # Read the next frame from the video
-    ret, frame = video.read()
+# Main loop
+while True:
+    # Capture 5 frames from the video
+    for i in range(5):
+        frame_number = i + 1
+        frame_interval = int(fps * time_delay / 5)
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_number * frame_interval)
+        ret, frame = cap.read()
+        if ret:
+            filename = f"{frames_folder}/frame{frame_number}.jpg"
+            cv2.imwrite(filename, frame)
+        else:
+            break
 
-    # If the frame was successfully read
-    if ret:
-        # Save the frame to a file
-        filename = os.path.join(frames_folder, f"frame{i:06d}.jpg")
-        cv2.imwrite(filename, frame)
+    # Construct tweet with 5 frames attached
+    media_ids = []
+    for i in range(1, 6):
+        filename = f"{frames_folder}/frame{i}.jpg"
+        res = api.media_upload(filename)
+        media_ids.append(res.media_id)
 
-        # If this is the 5th frame, post it to Twitter
-        if (i + 1) % 5 == 0:
-            # Wait for 30 minutes before posting the frames
-            time.sleep(1800)
+    tweet_with_media = api.update_status(status=tweet, media_ids=media_ids)
 
-            # Create a tweet with the frames
-            tweet = "Check out these frames from my video!"
-            media = [api.media_upload(os.path.join(frames_folder, f"frame{j:06d}.jpg")) for j in range(i - 4, i + 1)]
-            api.update_status(tweet, media_ids=[media_item.media_id for media_item in media])
-
-# Release the video capture object
-video.release()
-
-# Remove the frames folder and all its contents
-for file in os.listdir(frames_folder):
-    os.remove(os.path.join(frames_folder, file))
-os.rmdir(frames_folder)
+    # Wait before posting again
+    print("Next tweet in:")
+    for i in range(time_delay, 0, -1):
+        print(i)
+        time.sleep(1)
+    
+    # Remove the frames from the previous tweet
+    for i in range(1, 6):
+        filename = f"{frames_folder}/frame{i}.jpg"
+        os.remove(filename)
